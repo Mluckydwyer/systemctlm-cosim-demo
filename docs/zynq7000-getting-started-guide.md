@@ -3,33 +3,39 @@
 This demonstration shows how to compile and run the Co-Simulation demo of Buildroot in QEMU with a simulated device in SystemC.  **Buildroot was selected for this demo, but other Linux Kernel's can be built and deployed in QEMU and used as well.** This configuration is tested working for Ubuntu 18.0.4 and assumes that a `cosim` directory is created in your home directory. This walkthrough also assumes that the device being emulated by QEMU is the Xilinx Zynq-7000 SoC.  This SoC seemed like a good candidate but the concept can apply to any QEMU machine which plugs in a compatible remoteport bus interface.
 
 ## Dependencies
+
 Below are the dependencies needed to compile all the libraries in this demo:
+
 ```bash
 sudo apt update
 sudo apt install cmake gmake gcc qemu-kvm qemu-system qemu-user-static verilator
 ```
 
 ## Setup and Compilation
+
 Run these commands to clone and build the necessary repos (`~/cosim` assumed as the base directory).
 
 ### Create the base directory
+
 ```bash
 mkdir ~/cosim
 ```
 
 ### SystemC Setup
+
 ```bash
 # Build and install the binaries
 cd ~/cosim
 SYSC_VERSION=systemc-2.3.2
 wget https://www.accellera.org/images/downloads/standards/systemc/systemc-2.3.2.tar.gz
-tar xf systemc.2.3.2.tar.gz #changes here
-cd systemc-2.3.2/ #changes here
+tar xf systemc.2.3.2.tar.gz
+cd systemc-2.3.2/
 CXXFLAGS=-std=c++11 ./configure ; make
 sudo make install
 ```
 
 ### QEMU Setup
+
 ```bash
 cd ~/cosim
 git clone https://github.com/Xilinx/qemu.git
@@ -39,12 +45,13 @@ git submodule update --init dtc
 
 # Configure and build
 ./configure --target-list="arm-softmmu,aarch64-softmmu,microblazeel-softmmu" --enable-fdt --disable-kvm --disable-xen
-make -j$((`nproc`+1)) #added change here
+make -j$((`nproc`+1))
 sudo make install
 export SYSTEM=/cosim/systemc-2.3.2/
 ```
 
 ### Demo Setup
+
 ```bash
 # Clone the repo and the submodules
 cd ~/cosim
@@ -56,9 +63,7 @@ git submodule sync --recursive && git submodule update --init libsystemctlm-soc
 # Create the Makefile configeration
 cat << EOF | tee .config.mk
 CXXFLAGS=-std=c++11
-SYSTEMC=${HOME/cosim} #change here
-SYSTEMC_INCLUDE=${SYSTEMC}/systemc-2.3.2/src #change here
-SYSTEMC_LIBDIR=${SYSTEMC}/systemc-2.3.2/src/.libs #change here
+SYSTEMC=${HOME/cosim}
 HAVE_VERILOG=n
 HAVE_VERILOG_VERILATOR=n
 HAVE_VERILOG_VCS=n
@@ -70,6 +75,7 @@ make zynq_demo
 ```
 
 ### Buildroot Setup
+
 ```bash
 cd ~/cosim
 git clone https://github.com/buildroot/buildroot.git
@@ -78,7 +84,8 @@ git checkout 36edacce9c2c3b90f9bb11
 mkdir handles
 ```
 
-For this walkthough we will be configuring the demo to emulate the Zynq-7000 SoC. The `.dtsi` files available in the Xilinx repositories need significat modification to operate.
+For this walkthough we will be configuring the demo to emulate the Zynq-7000 SoC. 
+
 ```bash
 # Pull the .dtsi files for the Zynq-7000
 wget https://raw.githubusercontent.com/Xilinx/qemu-devicetrees/master/zynq-pl-remoteport.dtsi
@@ -116,18 +123,22 @@ make clean && make olddefconfig
 ```
 
 ## Running the Demo
+
 In order to run the co-simulation demo, you will need two shells open. One for QEMU and the other for SystemC. In the first shell navigate to the `systemctlm-cosim-demo` directory (`cd ~/cosim/systemctlm-cosim-demo`). This command will start the SystemC simulation:
+
 ```bash
-LD_LIBRARY_PATH=${SYSTEMC}/systemc-2.3.2/src/.libs/ ./zynq_demo 	unix:${HOME}/cosim/buildroot/handles/qemu-rport-_cosim@0 1000000 #change here
+LD_LIBRARY_PATH=${SYSTEMC}/systemc-2.3.2/src/.libs/ ./zynq_demo 	unix:${HOME}/cosim/buildroot/handles/qemu-rport-_cosim@0 1000000
 ```
 
 Start the QEMU instance in the second shell by running (in any directory):
+
 ```bash
 ${SYSTEMC}/qemu/aarch64-softmmu/qemu-system-aarch64 -M arm-generic-fdt-7series -m 1G -kernel ${SYSTEMC}/buildroot/output/images/uImage -dtb ${SYSTEMC}/buildroot/output/images/zynq-zc702.dtb --initrd ${SYSTEMC}/buildroot/output/images/rootfs.cpio.gz -serial /dev/null -serial mon:stdio -display none -net nic -net nic -net user -machine-path ${SYSTEMC}/buildroot/handles -icount 0,sleep=off -rtc clock=vm -sync-quantum 1000000
 ```
 
 ## Example Output
-Below is some example output showing the Buildroot instance querying the SystemC simulated environment. **This demo shows how the system clock changes after each read from the memory address. The clock's memory address is 0x40000000**:
+
+Below is some example output showing the Buildroot instance querying the SystemC simulated environment. **This demo shows how the system clock changes after each read from the memory address. The clock's memory address is 0x40000000. The value returned is the value of the system clock at that period of time**.:
 
 ```bash
 Welcome to Buildroot
@@ -136,7 +147,7 @@ buildroot login: root
 0x87AB9927
 #devmem 0x400000000
 0x8BFF63F0
-# devmem 0x40000000
+# devmem 0x40000000 
 0x8F1F7EC3
 # devmem 0x40000000
 0x917A5800
